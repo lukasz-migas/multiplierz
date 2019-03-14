@@ -21,12 +21,15 @@ import os
 import win32com.client
 from pythoncom import CoInitialize, CoUninitialize
 
+from multiplierz.mzReport import (ReportEntry, ReportReader, ReportWriter,
+                                  default_columns)
+
 #import xlrd
 
-from multiplierz.mzReport import ReportReader, ReportWriter, ReportEntry, default_columns
 
-win32com.client.gencache.is_readonly=False
+win32com.client.gencache.is_readonly = False
 xlApp = None
+
 
 def _start_excel():
     """Launches Excel. There is no need to call this directly,
@@ -70,7 +73,7 @@ def get_xl_sheet(file_name, sheet_name='Data'):
             workbook = xl_app.Workbooks.Open(file_name)
 
             sheet_set = set(str(workbook.Worksheets(i).Name)
-                             for i in range(1,workbook.Worksheets.Count + 1))
+                            for i in range(1, workbook.Worksheets.Count + 1))
 
             if sheet_name not in sheet_set:
                 raise IOError('File %s has no sheet %s' % (file_name, sheet_name))
@@ -80,23 +83,23 @@ def get_xl_sheet(file_name, sheet_name='Data'):
             if data:
                 data = [list(row) for row in data]
                 #metadata = []
-                #for i in range(1,len(data[0])+1):
-                    #if (workbook.Worksheets(sheet_name).Cells(2,i).HasFormula
-                        #and workbook.Worksheets(sheet_name).Cells(2,i).FormulaR1C1[0] == '='):
-                        #metadata.extend((j,i,'formula',
-                                         #workbook.Worksheets(sheet_name).Cells(j,i).FormulaR1C1)
-                                        #for j in range(2,len(data)+1))
+                # for i in range(1,len(data[0])+1):
+                # if (workbook.Worksheets(sheet_name).Cells(2,i).HasFormula
+                # and workbook.Worksheets(sheet_name).Cells(2,i).FormulaR1C1[0] == '='):
+                # metadata.extend((j,i,'formula',
+                # workbook.Worksheets(sheet_name).Cells(j,i).FormulaR1C1)
+                # for j in range(2,len(data)+1))
             else:
                 data = [[]]
                 #metadata = []
 
             workbook.Close(SaveChanges=0)
-        except Exception, e:
+        except Exception as e:
             raise
         finally:
             _stop_excel()
 
-        return data #, metadata
+        return data  # , metadata
     else:
         raise IOError('No such file: %s' % file_name)
 
@@ -120,7 +123,7 @@ def write_xl_sheet(file_name, sheet_name, data, metadata,
             new_file = True
 
         sheet_list = [str(workbook.Worksheets(i).Name)
-                      for i in range(1,workbook.Worksheets.Count + 1)]
+                      for i in range(1, workbook.Worksheets.Count + 1)]
 
         if sheet_name not in sheet_list:
             workbook.Worksheets.Add().Name = sheet_name
@@ -143,68 +146,71 @@ def write_xl_sheet(file_name, sheet_name, data, metadata,
             workbook.Worksheets(sheet_name).Range(address).Value = data
 
         if file_name.lower().endswith('.csv'):
-            workbook.SaveAs(file_name,0x6)
+            workbook.SaveAs(file_name, 0x6)
             workbook.Close(SaveChanges=1)
             return
 
-        for i,(x,y,t,md) in enumerate(metadata):
+        for i, (x, y, t, md) in enumerate(metadata):
             if i % 100 == 0:
                 workbook.Save()
 
             if isinstance(t, tuple) and t[0] == 'image':
                 height, width = t[1:]
-                workbook.Worksheets(sheet_name).Cells(x,y).ClearComments()
-                workbook.Worksheets(sheet_name).Cells(x,y).AddComment(" ")
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Fill.UserPicture(md)                
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Height = height * 72/100
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Width = width * 72/100                
+                workbook.Worksheets(sheet_name).Cells(x, y).ClearComments()
+                workbook.Worksheets(sheet_name).Cells(x, y).AddComment(" ")
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.Fill.UserPicture(md)
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.Height = height * 72/100
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.Width = width * 72/100
             if t == 'image':
                 #import Image
 
                 #wdth,hgt = Image.open(md).size
 
-
-
-                workbook.Worksheets(sheet_name).Cells(x,y).ClearComments()
-                workbook.Worksheets(sheet_name).Cells(x,y).AddComment(" ")
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Fill.UserPicture(md)
+                workbook.Worksheets(sheet_name).Cells(x, y).ClearComments()
+                workbook.Worksheets(sheet_name).Cells(x, y).AddComment(" ")
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.Fill.UserPicture(md)
                 # ugly solution but seems to work: 72% scaling to make the image sizes accurate
                 #workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Height = hgt * 72/100
                 #workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Width = wdth * 72/100
-            
+
                 #from PIL.Image import open
-                #wdth, hgt = open(md).size                    
+                #wdth, hgt = open(md).size
                 #workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Height = hgt * 72/100
-                #workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Width = wdth * 72/100                    
+                #workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Width = wdth * 72/100
             elif t == 'prot coverage':
-                workbook.Worksheets(sheet_name).Cells(x,y).ClearComments()
-                workbook.Worksheets(sheet_name).Cells(x,y).AddComment(md[0])
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters().Font.Name = "courier new"
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters().Font.Size = 12
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters().Font.Bold = False
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.Fill.ForeColor.SchemeColor = 9
+                workbook.Worksheets(sheet_name).Cells(x, y).ClearComments()
+                workbook.Worksheets(sheet_name).Cells(x, y).AddComment(md[0])
+                workbook.Worksheets(sheet_name).Cells(
+                    x, y).Comment.Shape.TextFrame.Characters().Font.Name = "courier new"
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.TextFrame.Characters().Font.Size = 12
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.TextFrame.Characters().Font.Bold = False
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.Fill.ForeColor.SchemeColor = 9
                 for s in range(1, len(md[0]), 61):
-                    workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters(s,5).Font.Bold = True
-                for (s,e) in md[1]:
-                    workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters(s,e-s+1).Font.Bold = True
-                    workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters(s,e-s+1).Font.ColorIndex = 3
-                for (s,e) in md[2]:
-                    workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.Characters(s,e-s+1).Font.Underline = True
-                workbook.Worksheets(sheet_name).Cells(x,y).Comment.Shape.TextFrame.AutoSize = True
+                    workbook.Worksheets(sheet_name).Cells(
+                        x, y).Comment.Shape.TextFrame.Characters(s, 5).Font.Bold = True
+                for (s, e) in md[1]:
+                    workbook.Worksheets(sheet_name).Cells(
+                        x, y).Comment.Shape.TextFrame.Characters(s, e-s+1).Font.Bold = True
+                    workbook.Worksheets(sheet_name).Cells(
+                        x, y).Comment.Shape.TextFrame.Characters(s, e-s+1).Font.ColorIndex = 3
+                for (s, e) in md[2]:
+                    workbook.Worksheets(sheet_name).Cells(
+                        x, y).Comment.Shape.TextFrame.Characters(s, e-s+1).Font.Underline = True
+                workbook.Worksheets(sheet_name).Cells(x, y).Comment.Shape.TextFrame.AutoSize = True
             elif t == 'formula':
-                workbook.Worksheets(sheet_name).Cells(x,y).FormulaR1C1 = md
+                workbook.Worksheets(sheet_name).Cells(x, y).FormulaR1C1 = md
             elif t == 'text':
-                workbook.Worksheets(sheet_name).Cells(x,y).NumberFormat = u'@'
+                workbook.Worksheets(sheet_name).Cells(x, y).NumberFormat = '@'
                 try:
                     if len(md) > 32000:
                         md = "!!!Truncated!!!" + md[:32000]
-                    workbook.Worksheets(sheet_name).Cells(x,y).Value = md
+                    workbook.Worksheets(sheet_name).Cells(x, y).Value = md
                 except:
-                    print x
-                    print y
-                    print t
-                    print md
-                    print i
+                    print(x)
+                    print(y)
+                    print(t)
+                    print(md)
+                    print(i)
                     raise ValueError("Error!")
 
         if before and before in sheet_list:
@@ -223,7 +229,7 @@ def write_xl_sheet(file_name, sheet_name, data, metadata,
         workbook.Activate()
 
         workbook.Close(SaveChanges=1)
-    except Exception, e:
+    except Exception as e:
         raise
     finally:
         _stop_excel()
@@ -245,7 +251,7 @@ def genbank_sheet_format(file_name, num_rows):
         workbook = xl_app.Workbooks.Open(file_name)
 
         sheet_list = [str(workbook.Worksheets(i).Name)
-                      for i in range(1,workbook.Worksheets.Count + 1)]
+                      for i in range(1, workbook.Worksheets.Count + 1)]
 
         if 'GenBank_Info' not in sheet_list:
             raise IOError('File %s has no sheet GenBank_Info' % file_name)
@@ -257,20 +263,20 @@ def genbank_sheet_format(file_name, num_rows):
 
         colorIndex = 15
 
-        for i in range(1,14,2):
-            workbook.Worksheets('GenBank_Info').Cells(1,i).Interior.ColorIndex = colorIndex
+        for i in range(1, 14, 2):
+            workbook.Worksheets('GenBank_Info').Cells(1, i).Interior.ColorIndex = colorIndex
 
-        #Set Column Widths
+        # Set Column Widths
         workbook.Worksheets('GenBank_Info').Columns.AutoFit()
 
-        #Set Border
+        # Set Border
         workbook.Worksheets('GenBank_Info').Range("A1:M1").Borders.Weight = 3
         workbook.Worksheets('GenBank_Info').Range("C2").Select()
         workbook.Application.ActiveWindow.FreezePanes = True
 
         for i in range(2, num_rows+2):
             for j in range(1, NUM_COLS+1, 2):
-                workbook.Worksheets('GenBank_Info').Cells(i,j).Interior.ColorIndex = colorIndex
+                workbook.Worksheets('GenBank_Info').Cells(i, j).Interior.ColorIndex = colorIndex
 
         # set column widths
         workbook.Worksheets('GenBank_Info').Range("A1:M1").Columns.AutoFit()
@@ -279,7 +285,7 @@ def genbank_sheet_format(file_name, num_rows):
         # move sheet
         workbook.Worksheets('GenBank_Info').Move(Before=None, After=workbook.Worksheets(workbook.Worksheets.Count))
         workbook.Close(SaveChanges=1)
-    except Exception, e:
+    except Exception as e:
         raise
     finally:
         _stop_excel()
@@ -300,7 +306,7 @@ class XLSheetReader(ReportReader):
 
     def __iter__(self):
         '''Returns the rows of data (not the headers) for reading'''
-        for i,row in enumerate(self._data):
+        for i, row in enumerate(self._data):
             if i == 0:
                 continue
             yield ReportEntry(columns=self.columns, values=row)
@@ -317,7 +323,7 @@ class XLSheetWriter(ReportWriter):
         a file handle--all IO is done when the file is closed. This means that you
         *must* call XLSheetWriter.close() or your file won't be saved!
         '''
-        
+
         self.file_name = file_name.replace('/', '\\')
         self.sheet_name = sheet_name or 'Data'
 
@@ -340,29 +346,29 @@ class XLSheetWriter(ReportWriter):
             raise ValueError('Must have values for each column')
         elif len(row) > len(self.columns):
             raise ValueError('Too many values')
-        elif isinstance(row,dict):
-            row = dict((k.lower(),v) for k,v in row.items())
+        elif isinstance(row, dict):
+            row = dict((k.lower(), v) for k, v in list(row.items()))
             if not all(k.lower() in row for k in self.columns):
                 raise ValueError('Value dictionary does not match column headers')
 
-        if isinstance(row,dict):
+        if isinstance(row, dict):
             row = [row[key.lower()] for key in self.columns]
 
         index = len(self._data) + 1
-        self._metadata.extend((index,i+1,'text',d) for i,d in enumerate(row)
-                              if isinstance(d, (str,unicode)) and len(d) > 768)
+        self._metadata.extend((index, i+1, 'text', d) for i, d in enumerate(row)
+                              if isinstance(d, str) and len(d) > 768)
 
-        self._data.append([(d[:768] if isinstance(d, (str,unicode)) else d) for d in row])
+        self._data.append([(d[:768] if isinstance(d, str) else d) for d in row])
 
         if metadata:
-            self._metadata.extend((index,self.columns.index(c)+1,t,md) for (c,t,md) in metadata)
+            self._metadata.extend((index, self.columns.index(c)+1, t, md) for (c, t, md) in metadata)
 
     def add_image(self, column, image):
         index = len(self._data) + 1
         if index:
             self._metadata.append((index, self.columns.index(column) + 1, 'image', image))
         else:
-            raise IndexError, "No row to add an image to"
+            raise IndexError("No row to add an image to")
 
     def close(self, *args, **kwargs):
         '''Close the file. In this case, we really open, write, and close all in

@@ -18,13 +18,15 @@
 
 import os
 import re
-import wx
-
-#import wxmpl
 
 from numpy import array, hypot
 
+import wx
 from multiplierz.mzTools import mz_image
+
+#import wxmpl
+
+
 
 #from mzDesktop import install_dir, settings
 
@@ -550,7 +552,7 @@ def report_chooser(title=None, mode='r', parent = None, **kwargs):
 
     # For legacy reasons, these are often misplaced in scripts.
     # But they're both necessarily typed differently, so its sortable.
-    if isinstance(parent, basestring) and not isinstance(title, basestring):
+    if isinstance(parent, str) and not isinstance(title, str):
         title, parent = parent, title
 
     wildcard = ("Worksheets (*.xls; *.xlsx)|*.xls; *.xlsx|"
@@ -663,7 +665,7 @@ class FileArrayDialog(wx.Dialog):
     def complete(self, event):
         self.EndModal(wx.ID_OK)
     def abort(self, event):
-        raise RuntimeError, "User cancelled file selection."
+        raise RuntimeError("User cancelled file selection.")
     
 def open_filearray(parent = None, filetypes = None):
     assert filetypes and all([len(x) == 2 for x in filetypes])

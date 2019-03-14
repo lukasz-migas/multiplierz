@@ -1,12 +1,16 @@
 from collections import defaultdict
+
+import matplotlib.pyplot as pyt
+
 from multiplierz.internalAlgorithms import insert_tag
+from multiplierz.mzReport import reader
 
 
-def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
-                  decoyString = 'rev_', includeStatisticsSheet = True,
-                  includeDuplicates = True, separateDuplicateSheet = True,
-                  includeFailedSheet = True, includeReverseSheet = True,
-                  single_cutoff = True):
+def calculate_FDR(reportfile, outputfile=None, threshold=0.01,
+                  decoyString='rev_', includeStatisticsSheet=True,
+                  includeDuplicates=True, separateDuplicateSheet=True,
+                  includeFailedSheet=True, includeReverseSheet=True,
+                  single_cutoff=True):
     """
     Performs Forward/Reverse database filtering on the target file, giving back
     the true PSMs over the specified statistical threshold as well as removed decoy
@@ -15,7 +19,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
     All entries in the decoy (reverse) database must have accessions that begin with
     some uniform prefix; by default, "rev_" (so that gi|198292342|X7823_EXTRA becomes
     rev_gi|198292342|X7823_EXTRA.)
-    
+
     outputfile may be safely specified to be the same as the input file, in
     order to overwrite the original file.
     """
@@ -27,7 +31,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
     columns = reportReader.columns + ['FDR']
     reportReader.close()
 
-    reportRows.sort(key = lambda x: x['Peptide Score'], reverse = True)
+    reportRows.sort(key=lambda x: x['Peptide Score'], reverse=True)
 
     seenSpectra = {}
 
@@ -58,7 +62,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
                 duplicateRows.append(row)
             continue
 
-        #if decoyString in row['Accession Number'].lower():
+        # if decoyString in row['Accession Number'].lower():
         # Turns out that produced awful results, since high-scoring peptides
         # could just happen to be duplicated in the reverse database.
         # So instead:
@@ -68,7 +72,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
                 fdr = reverses / forwards
             else:
                 fdr = 100
-            row['FDR'] = fdr      
+            row['FDR'] = fdr
 
             if float(row['Peptide Score']) > highRev:
                 highRev = float(row['Peptide Score'])
@@ -78,7 +82,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
         else:
             forwards += 1
             fdr = reverses / forwards
-            row['FDR'] = fdr            
+            row['FDR'] = fdr
 
             seenSpectra[specDesc] = fdr
             if fdr < threshold:
@@ -95,7 +99,7 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
         failedRows = [x for x in failedRows if x['Peptide Score'] <= lowPass]
         passedRows += recovered
 
-    if not outputfile: 
+    if not outputfile:
         # Output format must support sheets.
         if reportfile.lower().endswith('xlsx') or reportfile.lower().endswith('xls'):
             outputfile = insert_tag(reportfile, 'FDR_filtered')
@@ -105,29 +109,29 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
     percentage = round(threshold * 100)
 
     if includeFailedSheet:
-        failedOutput = writer(outputfile, columns = columns,
-                              sheet_name = "Failed %s%% FDR" % percentage)
+        failedOutput = writer(outputfile, columns=columns,
+                              sheet_name="Failed %s%% FDR" % percentage)
         for row in failedRows:
             failedOutput.write(row)
         failedOutput.close()
 
     if separateDuplicateSheet:
-        duplicateOutput = writer(outputfile, columns = columns,
-                                 sheet_name = "Duplicate Rows")
+        duplicateOutput = writer(outputfile, columns=columns,
+                                 sheet_name="Duplicate Rows")
         for row in duplicateRows:
             duplicateOutput.write(row)
         duplicateOutput.close()
 
     if includeReverseSheet:
-        reverseOutput = writer(outputfile, columns = columns,
-                               sheet_name = 'Reverse Hits')
+        reverseOutput = writer(outputfile, columns=columns,
+                               sheet_name='Reverse Hits')
         for row in reverseRows:
             reverseOutput.write(row)
         reverseOutput.close()
 
     if includeStatisticsSheet:
-        statOutput = writer(outputfile, columns = ['FDR Calculation Statistics', '--------------'],
-                            sheet_name = "FDR Statistics")
+        statOutput = writer(outputfile, columns=['FDR Calculation Statistics', '--------------'],
+                            sheet_name="FDR Statistics")
         statOutput.write(['', ''])
         statOutput.write(['Total Spectra', str(len(reportRows))])
         statOutput.write(['Passed %s%% FDR' % percentage, str(passed)])
@@ -137,38 +141,37 @@ def calculate_FDR(reportfile, outputfile = None, threshold = 0.01,
         statOutput.write(['Number of Duplicates', str(duplicates)])
         statOutput.close()
 
-    passedOutput = writer(outputfile, columns = columns, sheet_name = "Data")
+    passedOutput = writer(outputfile, columns=columns, sheet_name="Data")
     for row in passedRows:
         passedOutput.write(row)
-    passedOutput.close()   
+    passedOutput.close()
 
     return outputfile
 
-def combine_accessions(reportfile, outputfile = None):
+
+def combine_accessions(reportfile, outputfile=None):
     """
     Given a Mascot-style PSM report, this combines all protein hypotheses for a given
     MS2 spectrum into a single PSM.
-    
+
     outputfile may be safely specified to be the same as the input file, in
     order to overwrite the original file.
     """
-    
-    
+
     from multiplierz.mzReport import reader, writer
-    
+
     report = reader(reportfile)
     columns = report.columns
 
     molecules = defaultdict(list)
     for row in report:
         molecules[row['Spectrum Description']].append(row)
-        
-    
+
     outputData = []
-    for rows in molecules.values():
+    for rows in list(molecules.values()):
         accessions = [x['Accession Number'] for x in rows]
-        newRow = max(rows, key = lambda x: x['Peptide Score'])
-        
+        newRow = max(rows, key=lambda x: x['Peptide Score'])
+
         if 'Accession Number' in columns:
             newRow['Accession Number'] = '; '.join([x['Accession Number'] for x in rows])
         if 'Protein Description' in columns:
@@ -177,42 +180,40 @@ def combine_accessions(reportfile, outputfile = None):
             newRow['Protein Masses'] = '; '.join([str(x['Protein Mass']) for x in rows])
         newRow['Protein Redundancy'] = len(rows)
         outputData.append(newRow)
-    
+
     try:
         columns = [x for x in columns + ['Protein Masses'] if x in newRow]
     except UnboundLocalError:
-        pass # Means there was no newRow, and thus no rows, so it's pretty arbitrary.
-    
+        pass  # Means there was no newRow, and thus no rows, so it's pretty arbitrary.
+
     if not outputfile:
         outputfile = insert_tag(reportfile, 'combined_accessions')
-    
-    output = writer(outputfile, columns = columns + ['Protein Redundancy'])
+
+    output = writer(outputfile, columns=columns + ['Protein Redundancy'])
     report.close()
     for row in outputData:
         output.write(row)
     output.close()
-    
-    
-    
+
     return outputfile
 
 
 def concatenate_reports(reportfiles, outputfile):
     from multiplierz.mzReport import reader, writer
-    readers = map(reader, reportfiles)
-    allcols = sorted(set.intersection(*map(set, [x.columns for x in readers])),
-                     key = lambda x: readers[0].columns.index(x))
+    readers = list(map(reader, reportfiles))
+    allcols = sorted(set.intersection(*list(map(set, [x.columns for x in readers]))),
+                     key=lambda x: readers[0].columns.index(x))
     if not all(x.columns == allcols for x in readers):
-        print "Warning- concatenation drops some columns!"
-    output = writer(outputfile, columns = allcols)
+        print("Warning- concatenation drops some columns!")
+    output = writer(outputfile, columns=allcols)
     for report in readers:
         for row in report:
-            output.write(row, ignore_extra = True)
+            output.write(row, ignore_extra=True)
     output.close()
     return outputfile
 
 
-def fractionation_plot(fractions, outputfile = None, fig_size = None, **kwargs):
+def fractionation_plot(fractions, outputfile=None, fig_size=None, **kwargs):
     """
     Takes a list of 3-tuples (<organic fraction>, <salt fraction>, <filename>)
     describing the PSM output of a multi-fraction MS experiment; draws a
@@ -222,16 +223,15 @@ def fractionation_plot(fractions, outputfile = None, fig_size = None, **kwargs):
     from multiplierz.mzReport import reader
     import matplotlib.pyplot as pyt
     pyt.cla()
-    
+
     fractions = [(float(o), float(s), f) for o, s, f in fractions]
-    
+
     organics = sorted(set(zip(*fractions)[0]))
     salts = sorted(set(zip(*fractions)[1]))
-    
-    orgCoords = dict([(o, i) for i, o in enumerate(organics, start = 1)])
-    saltCoords = dict([(s, i) for i, s in enumerate(salts, start = 1)])
-    
-    
+
+    orgCoords = dict([(o, i) for i, o in enumerate(organics, start=1)])
+    saltCoords = dict([(s, i) for i, s in enumerate(salts, start=1)])
+
     if fig_size:
         fig = pyt.gcf()
         fig.set_size_inches(*fig_size)
@@ -244,17 +244,14 @@ def fractionation_plot(fractions, outputfile = None, fig_size = None, **kwargs):
         if len(saltCoords) > 8:
             cursize[1] = max(cursize[1], len(saltCoords) * 0.9)
         fig.set_size_inches(*cursize)
-        
-        
-        
-    
+
     scatterPts = []
     for organic, salt, psms in fractions:
         orgcoord = orgCoords[organic]
         saltcoord = saltCoords[salt]
-        if isinstance(psms, int): # Can just pass the count.
+        if isinstance(psms, int):  # Can just pass the count.
             count = psms
-        elif isinstance(psms, basestring): # Else the file
+        elif isinstance(psms, str):  # Else the file
             rdr = reader(psms)
             try:
                 count = rdr.get_row_count()
@@ -262,62 +259,57 @@ def fractionation_plot(fractions, outputfile = None, fig_size = None, **kwargs):
                 count = len(list(rdr))
             rdr.close()
         else:
-            raise Exception, "Must specify PSM count or file."
-        
+            raise Exception("Must specify PSM count or file.")
+
         scatterPts.append((orgcoord, saltcoord, count))
         pyt.text(orgcoord, saltcoord, str(count),
-                 verticalalignment = 'center',
-                 horizontalalignment = 'center')
-        
+                 verticalalignment='center',
+                 horizontalalignment='center')
+
     orgRange = max(orgCoords.values()) - min(orgCoords.values())
     saltRange = max(saltCoords.values()) - min(saltCoords.values())
     orgMargin = orgRange / 15.0
     saltMargin = saltRange / 15.0
     overallRange = min(orgRange, saltRange)
-        
+
     ax = pyt.axes()
     ax.set_xlim(min(orgCoords.values()) - orgMargin, max(orgCoords.values()) + orgMargin)
     ax.set_ylim(min(saltCoords.values()) - saltMargin, max(saltCoords.values()) + saltMargin)
-    
-        
-    #def count_to_size(counts):
-        #counts / 
-        
-    orgpts, saltpts, counts = zip(*scatterPts)
+
+    # def count_to_size(counts):
+    # counts /
+
+    orgpts, saltpts, counts = list(zip(*scatterPts))
     pyt.scatter(orgpts, saltpts, counts,
-                alpha = 0.2,
+                alpha=0.2,
                 **kwargs)
-    
-    orgTicks = [(v, k) for k, v in orgCoords.items()]
-    saltTicks = [(v, k) for k, v in saltCoords.items()]
-    pyt.xticks(*zip(*orgTicks))
-    pyt.yticks(*zip(*saltTicks))
+
+    orgTicks = [(v, k) for k, v in list(orgCoords.items())]
+    saltTicks = [(v, k) for k, v in list(saltCoords.items())]
+    pyt.xticks(*list(zip(*orgTicks)))
+    pyt.yticks(*list(zip(*saltTicks)))
     pyt.xlabel('Organic')
     pyt.ylabel('Salt')
-    
-    
-    
+
     #pyt.xlim(min(orgCoords.values()) - 0.5, max(orgCoords.values()) + 0.5)
     #pyt.ylim(min(saltCoords.values()) - 0.5, max(saltCoords.values()) + 0.5)
-    ##pyt.set_aspect('equal')    
+    # pyt.set_aspect('equal')
     #pyt.autoscale(enable = False)
-    
-    #print pyt.xlim(), pyt.ylim()
+
+    # print pyt.xlim(), pyt.ylim()
     if not outputfile:
         pyt.show()
     else:
         pyt.savefig(outputfile)
-    
-    #print pyt.xlim(), pyt.ylim()
-    pyt.cla()
-    
-from multiplierz.mzReport import reader
-import matplotlib.pyplot as pyt    
 
-def multimode_fractionation_plot(mode_fractions, outputfile = None,
-                                 count_to_size = (lambda x: x/100),
-                                 fig_size = None,
-                                 color_sequence = None):
+    # print pyt.xlim(), pyt.ylim()
+    pyt.cla()
+
+
+def multimode_fractionation_plot(mode_fractions, outputfile=None,
+                                 count_to_size=(lambda x: x/100),
+                                 fig_size=None,
+                                 color_sequence=None):
     """
     mode_fractions must be a list of (<mode title>, <fractions>) tuples where
     <fractions> is a list of (<organic fraction>, <salt fraction>,
@@ -330,21 +322,19 @@ def multimode_fractionation_plot(mode_fractions, outputfile = None,
     pyt.cla()
     if fig_size:
         fig = pyt.gcf()
-        fig.set_size_inches(*fig_size)    
-    
-    for i in range(len(mode_fractions)):
-        mode_fractions[i] = mode_fractions[i][0], [(float(o), float(s), f) for o, s, f 
-                                                   in mode_fractions[i][1]]
-    
-    modes = zip(*mode_fractions)[0]
-    organics = sorted(set(sum([list(zip(*x[1])[0]) for x in mode_fractions], [])))
-    salts = sorted(set(sum([list(zip(*x[1])[1]) for x in mode_fractions], [])))	
-    
-    orgCoords = dict([(o, i) for i, o in enumerate(organics, start = 1)])
-    saltCoords = dict([(s, i) for i, s in enumerate(salts, start = 1)])    
-    
+        fig.set_size_inches(*fig_size)
 
-    
+    for i in range(len(mode_fractions)):
+        mode_fractions[i] = mode_fractions[i][0], [(float(o), float(s), f) for o, s, f
+                                                   in mode_fractions[i][1]]
+
+    modes = list(zip(*mode_fractions))[0]
+    organics = sorted(set(sum([list(zip(*x[1])[0]) for x in mode_fractions], [])))
+    salts = sorted(set(sum([list(zip(*x[1])[1]) for x in mode_fractions], [])))
+
+    orgCoords = dict([(o, i) for i, o in enumerate(organics, start=1)])
+    saltCoords = dict([(s, i) for i, s in enumerate(salts, start=1)])
+
     grid = defaultdict(dict)
     largest = 0
     for mode, fractions in mode_fractions:
@@ -356,38 +346,32 @@ def multimode_fractionation_plot(mode_fractions, outputfile = None,
             rdr.close()
             grid[orgCoord, saltCoord][mode] = count
             largest = max([largest, count])
-    
-    xScale = (max(zip(*grid.keys())[0]) - min(zip(*grid.keys())[0])) / float(len(orgCoords))
-    yScale = (max(zip(*grid.keys())[1]) - min(zip(*grid.keys())[1])) / float(len(saltCoords))
-    overallscale = min([xScale, yScale])    
-    
-    #def countConvert(count):
-        #return (float(count) / (largest*3)) * float(overallscale)
+
+    xScale = (max(list(zip(*list(grid.keys())))[0]) - min(list(zip(*list(grid.keys())))[0])) / float(len(orgCoords))
+    yScale = (max(list(zip(*list(grid.keys())))[1]) - min(list(zip(*list(grid.keys())))[1])) / float(len(saltCoords))
+    overallscale = min([xScale, yScale])
+
+    # def countConvert(count):
+    # return (float(count) / (largest*3)) * float(overallscale)
     def countConvert(x): return 1
-    
-    fig  = pyt.figure()
+
+    fig = pyt.figure()
     ax = fig.gca()
-    for (orgCoord, saltCoord), modecounts in grid.items():
+    for (orgCoord, saltCoord), modecounts in list(grid.items()):
         countForAllModes = [modecounts.get(m, 0) for m in modes]
         total = sum(modecounts.values())
-        ax.pie(countForAllModes, center = (orgCoord, saltCoord),
-               radius = countConvert(total), frame = True,
-               colors = color_sequence)
-        
+        ax.pie(countForAllModes, center=(orgCoord, saltCoord),
+               radius=countConvert(total), frame=True,
+               colors=color_sequence)
 
-    
-        
     ax.set_xlim(min(orgCoords.values()) - 0.5, max(orgCoords.values()) + 0.5)
     ax.set_ylim(min(saltCoords.values()) - 0.5, max(saltCoords.values()) + 0.5)
     ax.set_aspect('equal')
-    
-    ax.legend(modes, loc = 'upper left')
-    
+
+    ax.legend(modes, loc='upper left')
+
     if not outputfile:
         pyt.show()
     else:
         pyt.savefig(outputfile)
     pyt.cla()
-        
-        
-    

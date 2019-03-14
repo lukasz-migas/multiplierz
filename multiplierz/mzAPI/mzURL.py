@@ -16,14 +16,14 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with multiplierz.  If not, see <http://www.gnu.org/licenses/>.
 
+import io
 #import lxml.etree as etree
 import os
-import cStringIO
 import tempfile
 
 import pycurl
-
-from multiplierz.mzAPI import mzScan, mzFile as mzAPImzFile #, mzInfoFile
+from multiplierz.mzAPI import mzFile as mzAPImzFile  # , mzInfoFile
+from multiplierz.mzAPI import mzScan
 
 # some question of how to create an info file for these..
 #def make_info_file(data_file):
@@ -61,7 +61,7 @@ def check_mzURL(mz_server, file_name):
     crl.setopt(pycurl.FOLLOWLOCATION, True)
     crl.setopt(pycurl.URL, str(mz_server + '/files.txt'))
 
-    output = cStringIO.StringIO()
+    output = io.StringIO()
     crl.setopt(pycurl.WRITEFUNCTION, output.write)
 
     try:
@@ -70,7 +70,7 @@ def check_mzURL(mz_server, file_name):
             crl.perform()
             if output.getvalue():
                 break
-    except pycurl.error, e:
+    except pycurl.error as e:
         return False
 
     for f in output.getvalue().splitlines():
@@ -114,7 +114,7 @@ class mzFile(mzAPImzFile):
         self.crl.setopt(pycurl.FOLLOWLOCATION, True)
         self.crl.setopt(pycurl.VERBOSE, verbose)
 
-        self.output = cStringIO.StringIO()
+        self.output = io.StringIO()
         self.crl.setopt(pycurl.WRITEFUNCTION, self.output.write)
 
         # how would you store an info file?
@@ -136,7 +136,7 @@ class mzFile(mzAPImzFile):
         '''
         self.crl.close()
         if self.verbose:
-            print self.output.getvalue()
+            print(self.output.getvalue())
         self.output.close()
         os.unlink(self.cookie_file_name)
 
@@ -150,7 +150,7 @@ class mzFile(mzAPImzFile):
             # the scan_name is the URL of that scan, which is just the time
             scan_url = self.data_file + '/scans/%s'
 
-            response = cStringIO.StringIO()
+            response = io.StringIO()
             self.crl.setopt(pycurl.WRITEFUNCTION, response.write)
 
             #self.crl.perform()
@@ -225,7 +225,7 @@ class mzFile(mzAPImzFile):
         self.crl.setopt(pycurl.HTTPGET, True)
         self.crl.setopt(pycurl.URL, str(scan_name + '.txt'))
 
-        response = cStringIO.StringIO()
+        response = io.StringIO()
         self.crl.setopt(pycurl.WRITEFUNCTION, response.write)
 
         for i in range(5):
@@ -247,7 +247,7 @@ class mzFile(mzAPImzFile):
         self.crl.setopt(pycurl.HTTPGET, True)
         self.crl.setopt(pycurl.URL, xic_url)
 
-        response = cStringIO.StringIO()
+        response = io.StringIO()
         self.crl.setopt(pycurl.WRITEFUNCTION, response.write)
 
         for i in range(5):

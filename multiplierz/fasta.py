@@ -1,26 +1,23 @@
 import gzip
-from mass_biochem import digest
-from multiplierz.internalAlgorithms import gzOptOpen
 import re
+
+from .mass_biochem import digest
+from multiplierz.internalAlgorithms import gzOptOpen
 
 __all__ = ['Writer', 'parse_to_dict', 'parse_to_generator', 'write_fasta',
            'partial_database', 'reverse_database', 'combine', 'pseudo_reverse']
 
 
-
-
-
-
-def parse_to_dict(fastaFile, labelConverter = (lambda x: x), 
-                  nonredundant_labels = False,
-                  filter_string = None):
+def parse_to_dict(fastaFile, labelConverter=(lambda x: x),
+                  nonredundant_labels=False,
+                  filter_string=None):
     '''
     Parses a FASTA file and provides a dict object from headers to corresponding
     sequences.  Takes longer to initialize than the generator, but random-access
     lookup of sequences can be performed much faster.
     '''
 
-    fasta = gzOptOpen(fastaFile, mode = 'r')
+    fasta = gzOptOpen(fastaFile, mode='r')
 
     index = {}
     nextKey = None
@@ -37,7 +34,7 @@ def parse_to_dict(fastaFile, labelConverter = (lambda x: x),
 
         else:
             nextSeq += line
-    
+
     if not nonredundant_labels:
         label = labelConverter(nextKey.strip())
         index[label] = nextSeq.replace('\n', '')
@@ -46,13 +43,13 @@ def parse_to_dict(fastaFile, labelConverter = (lambda x: x),
         keys = nextKey.split('\x01')
         for key in keys:
             index[key] = seq
-    
 
     fasta.close()
     return index
 
-def parse_to_generator(fasta_file, labelConverter = (lambda x: x),
-                       filter_string = None):
+
+def parse_to_generator(fasta_file, labelConverter=(lambda x: x),
+                       filter_string=None):
     '''
     Parses a FASTA file and provides a generator of (header,sequence) tuples.
     Can be used efficiently even on very large FASTA files.
@@ -63,7 +60,7 @@ def parse_to_generator(fasta_file, labelConverter = (lambda x: x),
         process(sequence)
     '''
 
-    fasta = gzOptOpen(fasta_file, mode = 'r')
+    fasta = gzOptOpen(fasta_file, mode='r')
 
     header = ''
     sequence = []
@@ -79,40 +76,39 @@ def parse_to_generator(fasta_file, labelConverter = (lambda x: x),
             sequence = []
             header = line[1:].strip()
         else:
-            sequence.append(line.strip())	
+            sequence.append(line.strip())
 
     yield (labelConverter(header), ''.join(sequence))
 
     fasta.close()
 
+
 # For the sake of symmetry with Writer(); since generators have a .close()
 # function inherently, the methods even match!
 Reader = parse_to_generator
+
 
 class Writer():
     """
     Easily writes properly formatted FASTA entries.
     """
-    def __init__(self, filename, line_length = 80):
-        self.file = gzOptOpen(filename, mode = 'w')
+
+    def __init__(self, filename, line_length=80):
+        self.file = gzOptOpen(filename, mode='w')
         self.length = line_length
-    
+
     def write(self, header, sequence):
         if not header[0] == '>':
             header = '>' + header
-        
-        sequence = '\n'.join([sequence[i : i + self.length]
+
+        sequence = '\n'.join([sequence[i: i + self.length]
                               for i in range(0, len(sequence), self.length)])
-        
+
         self.file.write(header + '\n')
         self.file.write(sequence + '\n')
-    
+
     def close(self):
         self.file.close()
-        
-        
-        
-            
 
 
 def write_fasta(fasta, save_file, write_mode='w'):
@@ -123,10 +119,10 @@ def write_fasta(fasta, save_file, write_mode='w'):
     The proteins will not be written in any particular order.
     '''
 
-    fasta_file = gzOptOpen(save_file, mode = write_mode)
+    fasta_file = gzOptOpen(save_file, mode=write_mode)
 
     if type(fasta) == type(dict()):
-        for prot, seq in fasta.items():
+        for prot, seq in list(fasta.items()):
             if prot[0] == '>':
                 fasta_file.write("%s\n" % prot.strip())
             else:
@@ -138,14 +134,13 @@ def write_fasta(fasta, save_file, write_mode='w'):
                 fasta_file.write("%s\n" % prot.strip())
             else:
                 fasta_file.write(">%s\n" % prot.strip())
-            fasta_file.write("%s\n\n" % seq)	
+            fasta_file.write("%s\n\n" % seq)
 
     fasta_file.close()
 
 
-
-def partial_database(fasta, output = None, search = '',
-                     use_regex = False, include_matches = True):
+def partial_database(fasta, output=None, search='',
+                     use_regex=False, include_matches=True):
     """
     fasta -> A target FASTA-format file
     output -> The output file (input file is overwritten if this is not specified.)
@@ -156,7 +151,7 @@ def partial_database(fasta, output = None, search = '',
     include_matches -> If this is True (the default,) FASTA entries are included in
     the output if they match a search string; if False, FASTA entries are included
     if they match NONE of the search strings.
-    
+
     Creates a new fasta database by copying each entry from the original, according
     to the rules outlined above.
     """
@@ -164,21 +159,20 @@ def partial_database(fasta, output = None, search = '',
     if not output:
         output = fasta + 'partial_database.fasta'
 
-    if isinstance(search, basestring):
+    if isinstance(search, str):
         search = [search]
     if use_regex:
-        search = map(re.compile, search)
-        
-    
+        search = list(map(re.compile, search))
+
     fastaGen = parse_to_generator(fasta)
 
-    out = gzOptOpen(output, mode = 'w')
+    out = gzOptOpen(output, mode='w')
 
     if use_regex:
         for header, sequence in fastaGen:
             if any([x.search(header) for x in search]) == include_matches:
                 out.write('>' + header + '\n')
-                out.write(sequence + '\n')                
+                out.write(sequence + '\n')
     else:
         for header, sequence in fastaGen:
             if any([x in header for x in search]) == include_matches:
@@ -186,11 +180,11 @@ def partial_database(fasta, output = None, search = '',
                 out.write(sequence + '\n')
 
     out.close()
-    
+
     return output
 
 
-def reverse_database(fasta, outputFile = None, include_forward = False, tag = 'rev_'):
+def reverse_database(fasta, outputFile=None, include_forward=False, tag='rev_'):
     '''
     Writes a reverse-sequence database, where each header is annotated
     with 'rev_' and each sequence is reversed from the original.
@@ -204,7 +198,7 @@ def reverse_database(fasta, outputFile = None, include_forward = False, tag = 'r
     if not outputFile:
         if fasta.lower().endswith('.fasta'):
             inputName = fasta[:-6]
-            
+
         if include_forward:
             outputFile = inputName + '-forward_reverse_db.fasta'
         else:
@@ -222,53 +216,52 @@ def reverse_database(fasta, outputFile = None, include_forward = False, tag = 'r
             output.write(protein, sequence)
         output.write(revProtein, revSequence)
 
-    output.close()	
-    
+    output.close()
+
     return outputFile
-    
-    
-    
+
+
 def combine(fasta_files, output):
     """
     Simply combines a given list of FASTA files together.  Aside from gzip support,
     this is just file concatenation.
     """
-    
-    outputFile = gzOptOpen(output, mode = 'w')
+
+    outputFile = gzOptOpen(output, mode='w')
     for fasta in fasta_files:
-        fastaFile = gzOptOpen(fasta, mode = 'r')
+        fastaFile = gzOptOpen(fasta, mode='r')
         outputFile.write(fastaFile.read())
         fastaFile.close()
     outputFile.close()
-    
+
     return output
-    
-def pseudo_reverse(fasta, output = None, enzyme = 'Trypsin', tag = 'rev_', include_forward = False):
+
+
+def pseudo_reverse(fasta, output=None, enzyme='Trypsin', tag='rev_', include_forward=False):
     """
     Creates a psuedo-reverse database, in which each individual fragment sequence
     specified by the given enzyme is reversed.  The cleavage sites themselves are
     preserved and not reversed.
     """
-    
+
     if not output:
         output = fasta + '.pseudo_reversed.fasta'
-    
+
     fastaFile = parse_to_generator(fasta)
     outputFile = Writer(output)
-    
+
     for header, sequence in fastaFile:
         subsequences = [x[0] for x in digest(sequence, enzyme)]
-        
+
         reconstructed = []
         for subseq in subsequences:
             reconstructed.append(subseq[:-1][::-1] + subseq[-1])
         reconstructed = ''.join(reconstructed)
-        
+
         if include_forward:
             outputFile.write(header, sequence)
         outputFile.write(tag+header, reconstructed)
-    
+
     outputFile.close()
 
     return output
-

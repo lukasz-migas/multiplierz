@@ -17,15 +17,19 @@
 # along with multiplierz.  If not, see <http://www.gnu.org/licenses/>.
 
 
+import logging
+import os
+import sys
+
+from multiplierz.settings import settings
+
 __author__ = 'Jignesh Parikh, James Webber, William Max Alexander'
 __version__ = '2.0.0'
+__all__ = ['mzAPI', 'mzTools', 'mzReport', 'myHome', 'myData', 'logger_message', 'SettingsFile', 'PY3']
 
-__all__ = ['mzAPI', 'mzTools', 'mzReport',
-           'myHome', 'myData', 'logger_message', 'SettingsFile']
-
-import logging
-import os, sys
-
+PY3 = False
+if (sys.version_info > (3, 0)):
+    PY3 = True
 
 
 # Based on matplotlib's _get_home function (in matplotlib/__init__.py)
@@ -37,7 +41,7 @@ def _get_home():
     path = ''
 
     try:
-        path=os.path.expanduser("~")
+        path = os.path.expanduser("~")
     except:
         pass
 
@@ -68,15 +72,16 @@ SettingsFile = os.path.join(myData, 'settings.txt')
 modFile = os.path.join(myData, 'mods.txt')
 
 verbose_mode = True
+
+
 def vprint(thing):
     """
     Multiplierz verbosity-sensitive print function, for use 
     internally.  Prints only if multiplierz.verbose_mode == True.
     """
-    global verbose_mode # Slightly speeds up lookup, supposedly.
+    global verbose_mode  # Slightly speeds up lookup, supposedly.
     if verbose_mode:
-        print thing
-        
+        print(thing)
 
 
 class legacy_logging(object):
@@ -85,16 +90,17 @@ class legacy_logging(object):
     def __init__(self):
         #self.logger = logging.getLogger('multiplierz_legacy_logger')
         pass
-    
-    def __call__(self, level = 30, message = 'Foo'):
+
+    def __call__(self, level=30, message='Foo'):
         vprint(message)
         #self.logger.log(level, str(message))
-        
-    
+
     def set_level(self, level):
         pass
 
+
 logger_message = legacy_logging()
+
 
 def get_module_logger(module_name):
     log = logging.getLogger(module_name)
@@ -102,37 +108,36 @@ def get_module_logger(module_name):
     return log
 
 
-
 def load_mods():
     """
     A list of modifications for use in Comet, XTandem, and etc.
-    
+
     List is (modification, specificity, mass) tuples.
     """
-    
+
     assert os.path.exists(modFile), 'mods.txt not found!'
-    
+
     mods = []
     with open(modFile, 'r') as file:
         for line in file:
             if not line.strip() or line.strip()[0] == '#':
                 continue
-            
+
             mod, sites, mass = line.split()
             mods.append((mod, sites, float(mass)))
-    
+
     return mods
-    
+
+
 fastaFiles = os.path.join(myData, 'fastafiles.txt')
+
+
 def fastaList():
     fastas = []
     with open(fastaFiles, 'r') as file:
         for line in file:
             fastas.append(line.strip())
     return fastas
-        
-
-
 
 
 # The first time multiplierz is loaded, it will set up the
@@ -195,11 +200,12 @@ def initialSettings():
     mascot show input query=True
     mascot rank one only=True
     mascot pep quant=False
-    """    
+    """
     ptr = open(os.path.join(myData, 'settings.txt'), 'w')
     ptr.write(defaultSettingsFile)
     ptr.close()
-    
+
+
 def deployUnimod():
     import shutil
     unimodFile = os.path.join(os.path.dirname(__file__), 'unimod.sqlite')
@@ -210,12 +216,12 @@ def deployUnimod():
             if 'unimod.sqlite' in files:
                 unimodFile = os.path.join(path, 'unimod.sqlite')
                 break
-            
+
     if not unimodFile:
-        print "WARNING: No unimod.sqlite found in %s (%s)" % (basedir, sys.executable)    
+        print("WARNING: No unimod.sqlite found in %s (%s)" % (basedir, sys.executable))
     else:
-        shutil.copy(unimodFile, os.path.join(myData, 'unimod.sqlite'))    
-    
+        shutil.copy(unimodFile, os.path.join(myData, 'unimod.sqlite'))
+
 
 def initialMods():
     DefaultModificationFile = """
@@ -223,38 +229,37 @@ def initialMods():
 
     Oxidation	M	15.9949
     Phosphorylation	STY	79.966331
-    """   
-    mods = open(os.path.join(myData,'mods.txt'), 'w')
+    """
+    mods = open(os.path.join(myData, 'mods.txt'), 'w')
     mods.write(DefaultModificationFile)
-    mods.close()    
-    
+    mods.close()
+
+
 def initializeFasta():
-    fastas = open(os.path.join(myData,'fastafiles.txt'), 'w')
+    fastas = open(os.path.join(myData, 'fastafiles.txt'), 'w')
     fastas.close()
-    
-    
+
 
 if not os.path.exists(myData):
-    print "Multiplierz directory (%s) not found; creating it." % myData
+    print("Multiplierz directory (%s) not found; creating it." % myData)
     os.mkdir(myData)
-    
+
 
 requiredFiles = [('settings.txt', initialSettings),
-                 ('unimod.sqlite', deployUnimod), 
-                 ('mods.txt', initialMods), 
+                 ('unimod.sqlite', deployUnimod),
+                 ('mods.txt', initialMods),
                  ('fastafiles.txt', initializeFasta)]
-requiredSubdirs = ['TEMP', # Still used by old mzReport imaging functions.
-                   'pyCometDatabases'] # Probably obsolete from fastafiles.txt?
+requiredSubdirs = ['TEMP',  # Still used by old mzReport imaging functions.
+                   'pyCometDatabases']  # Probably obsolete from fastafiles.txt?
 
 
 for subdir in requiredSubdirs:
     if not os.path.exists(os.path.join(myData, subdir)):
-        print "Required multiplierz data directory %s not found!  Creating it." % subdir
+        print("Required multiplierz data directory %s not found!  Creating it." % subdir)
         os.mkdir(os.path.join(myData, subdir))
 for filename, initializer in requiredFiles:
     if not os.path.exists(os.path.join(myData, filename)):
-        print "Required multiplierz data file %s not found!  Creating it." % filename
+        print("Required multiplierz data file %s not found!  Creating it." % filename)
         initializer()
 
-from multiplierz.settings import settings
-protonMass = 1.0072764 # Used at various points.
+protonMass = 1.0072764  # Used at various points.

@@ -1,36 +1,41 @@
-from collections import defaultdict
-from internalAlgorithms import average
-from multiplierz import protonMass
-from collections import deque, Iterator
+from collections import Iterator, defaultdict, deque
+
 from numpy import std
 
-def centroid(scan, threshold = None):
+from internalAlgorithms import average
+from multiplierz import protonMass, PY3
+
+if not PY3:
+    range = xrange
+
+
+def centroid(scan, threshold=None):
     """
     Centroids profile-mode data given in [(M/Z, intensity)] format.
     """
-    from internalAlgorithms import average
-    
+    from .internalAlgorithms import average
+
     if not scan:
         return scan
-    
+
     if not threshold:
         assert not isinstance(scan, Iterator), ("centroid() requires explicit "
                                                 "threshold value if given an "
                                                 "Iterator argument.")
 
-        threshold = average(zip(*scan)[1])
-        
+        threshold = average(list(zip(*scan))[1])
+
     peaks = []
     peak = []
     for pt in scan:
         if pt[1] > threshold:
             peak.append(pt)
         elif peak:
-            centMZ = average(zip(*peak)[0], weights = zip(*peak)[1])
-            centInt = max(zip(*peak)[1])
+            centMZ = average(list(zip(*peak))[0], weights=list(zip(*peak))[1])
+            centInt = max(list(zip(*peak))[1])
             if len(pt) == 4:
-                centNoise = average(zip(*peak)[2], weights = zip(*peak)[1])
-                centCharge = max(zip(*peak)[3])
+                centNoise = average(list(zip(*peak))[2], weights=list(zip(*peak))[1])
+                centCharge = max(list(zip(*peak))[3])
                 peaks.append((centMZ, centInt, centNoise, centCharge))
             else:
                 peaks.append((centMZ, centInt))
@@ -38,39 +43,39 @@ def centroid(scan, threshold = None):
     return peaks
 
 
-
-
 # Tolerances widened for elegance and caution.
-isotopicRatios = {(0, 1) : (0.5, 16.2),
-                  (1, 2) : (1.0, 9.7),
-                  (2, 3) : (1.4, 20.7),
-                  (3, 4) : (1.7, 21.2),
-                  (4, 5) : (2.0, 30.0),
-                  (5, 6) : (2.4, 25.2),
-                  (6, 7) : (2.6, 24.0),
-                  (7, 8) : (2.9, 22.2),
-                  (8, 9) : (3.0, 20.0),
-                  (9, 10) : (3.4, 17.0),
-                  (10, 11) : (3.6, 15.0)
+isotopicRatios = {(0, 1): (0.5, 16.2),
+                  (1, 2): (1.0, 9.7),
+                  (2, 3): (1.4, 20.7),
+                  (3, 4): (1.7, 21.2),
+                  (4, 5): (2.0, 30.0),
+                  (5, 6): (2.4, 25.2),
+                  (6, 7): (2.6, 24.0),
+                  (7, 8): (2.9, 22.2),
+                  (8, 9): (3.0, 20.0),
+                  (9, 10): (3.4, 17.0),
+                  (10, 11): (3.6, 15.0)
                   }
 # Tolerances widened even further, for chlorine atoms.
-isotopicRatios_permissive = {(0, 1) : (0.5, 16.2),
-                             (1, 2) : (1.0, 9.7),
-                             (2, 3) : (1.0, 20.7),
-                             (3, 4) : (1.0, 21.2),
-                             (4, 5) : (1.0, 30.0),
-                             (5, 6) : (1.5, 25.2),
-                             (6, 7) : (1.5, 24.0),
-                             (7, 8) : (2.0, 22.2),
-                             (8, 9) : (3.0, 20.0),
-                             (9, 10) : (3.4, 17.0),
-                             (10, 11) : (3.6, 15.0)
-                           }
+isotopicRatios_permissive = {(0, 1): (0.5, 16.2),
+                             (1, 2): (1.0, 9.7),
+                             (2, 3): (1.0, 20.7),
+                             (3, 4): (1.0, 21.2),
+                             (4, 5): (1.0, 30.0),
+                             (5, 6): (1.5, 25.2),
+                             (6, 7): (1.5, 24.0),
+                             (7, 8): (2.0, 22.2),
+                             (8, 9): (3.0, 20.0),
+                             (9, 10): (3.4, 17.0),
+                             (10, 11): (3.6, 15.0)
+                             }
 # Dev note: "First, do no harm"- all peaks from the input scan should be
 # represented somewhere in the output (and no new peaks, obviously.)
-def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction = None,
-              cleanup = False, recover_peaks = True,
-              enforce_isotopic_ratios = True):
+
+
+def peak_pick(scan, tolerance=0.005, max_charge=8, min_peaks=3, correction=None,
+              cleanup=False, recover_peaks=True,
+              enforce_isotopic_ratios=True):
     """
     Scans a scan and gives back a by-charge dict of lists of isotopic sequences
     found in the scan, as well as a list of the unassigned peaks.
@@ -83,7 +88,7 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
     correction - Advanced feature; recalibration factor used for repeated calls on the same file.
     """
 
-    if enforce_isotopic_ratios == True:
+    if enforce_isotopic_ratios:
         global isotopicRatios
     elif enforce_isotopic_ratios == 'permissive':
         isotopicRatios = isotopicRatios_permissive
@@ -111,7 +116,7 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
         # the expected ratio with the previous intensity in the sequence, it
         # is added to that sequence and the algorithm proceeds to the next
         # point.
-        for chg, chargeSet in activeSets.items():
+        for chg, chargeSet in list(activeSets.items()):
             # Chargeset is ordered by MZ, by construction, so only the first
             # (within-range) expected-point has to be checked.
 
@@ -128,7 +133,8 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
                         if recover_peaks:
                             if chg < max_charge:
                                 for oldPt in finishedSet['envelope']:
-                                    possibleNexts = [(z, oldPt[0] + cF) for z, cF in chargeFractions if oldPt[0] + cF > pmz]
+                                    possibleNexts = [(z, oldPt[0] + cF)
+                                                     for z, cF in chargeFractions if oldPt[0] + cF > pmz]
                                     if possibleNexts:
                                         activePts[oldPt] = possibleNexts
                                     else:
@@ -136,13 +142,13 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
                             else:
                                 unassigned += finishedSet['envelope']
 
-            if chargeSet and chargeSet[0]['next'] - pmz < tolerance: # Too-low has already been eliminated?
+            if chargeSet and chargeSet[0]['next'] - pmz < tolerance:  # Too-low has already been eliminated?
                 iso = chargeSet[0]
                 isoLen = len(iso['envelope'])
                 lowRat, highRat = isotopicRatios[isoLen-1, isoLen]
 
                 if lowRat <= (iso['prevInt'] / pint) <= highRat:
-                #if True:
+                    # if True:
                     iso['envelope'].append(pt)
                     nextMZ = pmz + chargeFracDict[chg]
                     iso['next'] = nextMZ
@@ -154,32 +160,29 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
                     accounted = True
                     break
 
-
-        if accounted: # If it was put in a pre-existing isotopic sequence.
+        if accounted:  # If it was put in a pre-existing isotopic sequence.
             continue
-
 
         # "Active points" are single previously-seen points that were not matched
         # to an isotopic sequence.  They are kept separate from isotopic sequences
         # since their charge is indeterminate, so there's multiple possible-next-MZs.
-        # If a point matches to an active point, they're put together in a new 
+        # If a point matches to an active point, they're put together in a new
         # isotopic sequence.
-        for actPt in sorted(activePts.keys(), key = lambda x: x[1], reverse = True):
+        for actPt in sorted(list(activePts.keys()), key=lambda x: x[1], reverse=True):
             if actPt[0] + 1 + tolerance < pmz:
                 del activePts[actPt]
                 unassigned.append(actPt)
-            #elif (actPt[1]*10 > pint) and (pint*10 > actPt[1]):
+            # elif (actPt[1]*10 > pint) and (pint*10 > actPt[1]):
             elif lowC13Rat <= (actPt[1] / pint) <= highC13Rat:
                 charge = next((charge for (charge, mz) in activePts[actPt] if
                                abs(mz - pmz) < tolerance), None)
                 if charge:
                     nextMZ = pmz + chargeFracDict[charge]
-                    newActiveSet = {'envelope':[actPt, pt],
-                                    'charge':charge,
-                                    'next':nextMZ,
-                                    'prevInt':pint}
+                    newActiveSet = {'envelope': [actPt, pt],
+                                    'charge': charge,
+                                    'next': nextMZ,
+                                    'prevInt': pint}
                     activeSets[charge].append(newActiveSet)
-
 
                     del activePts[actPt]
 
@@ -193,66 +196,59 @@ def peak_pick(scan, tolerance = 0.005, max_charge = 8, min_peaks = 3, correction
             possibleNexts = [(chg, pmz + cF) for chg, cF in chargeFractions]
             activePts[pt] = possibleNexts
 
-
-
     newCorrection = []
-    for charge, things in activeSets.items():
+    for charge, things in list(activeSets.items()):
         for thing in things:
             if len(thing['envelope']) >= min_peaks:
                 envelopes[charge].append(thing['envelope'])
             else:
-                unassigned += thing['envelope']            
+                unassigned += thing['envelope']
 
-    unassigned += activePts.keys()
-
-
+    unassigned += list(activePts.keys())
 
     # Cleanup phase- each envelope checks for unassigned peaks that
     # would correctly extend it.  This *usually* does not find anything new.
     if cleanup:
-        unProx = ProximityIndexedSequenceAgain(unassigned, indexer = lambda x: x[0],
-                                               dynamic = False)        
-        for charge, chgEnvelopes in envelopes.items():
+        unProx = ProximityIndexedSequenceAgain(unassigned, indexer=lambda x: x[0],
+                                               dynamic=False)
+        for charge, chgEnvelopes in list(envelopes.items()):
             increment = 1.0/charge
             for envelope in chgEnvelopes:
                 first = min(envelope)
                 fmz = first[0] - increment
 
                 #scale = isotopicRatios[0, 1]
-                #befPt = next((x for x in unassigned if (abs(x[0] - fmz) < tolerance and
-                                                        #scale[0] < (x[1]/first[1]) < scale[1])),
-                                #None)
+                # befPt = next((x for x in unassigned if (abs(x[0] - fmz) < tolerance and
+                # scale[0] < (x[1]/first[1]) < scale[1])),
+                # None)
                 befPt = unProx[fmz]
-                #if befPt:
+                # if befPt:
                 scale = isotopicRatios[0, 1]
                 if (abs(befPt[0] - fmz) < tolerance and
-                    scale[0] < (befPt[1]/first[1]) < scale[1]):
+                        scale[0] < (befPt[1]/first[1]) < scale[1]):
                     envelope.insert(0, befPt)
 
-    if correction != None:
+    if correction is not None:
         return dict(envelopes), unassigned, newCorrection
     else:
-        return dict(envelopes), unassigned        
-    
-    
-    
-    
-    
+        return dict(envelopes), unassigned
+
+
 def deisotope_reduce_scan(spectrum, *peak_pick_args, **peak_pick_kwargs):
     """
     Deisotopes the given mass spectrum, and replaces isotopically pure peaks
     of determined charge with imputed peaks of charge +1. This often improves
     search scores, particularly when using a database search engine which
     does not account for all possible charge states.
-    
+
     For best results, the scan mass tolerance should be below 0.01 Daltons.
     """
     global protonMass
-    
+
     chargeEnvelopes, peaks = peak_pick(spectrum,
                                        *peak_pick_args,
                                        **peak_pick_kwargs)
-    for charge, envelopes in chargeEnvelopes.items():
+    for charge, envelopes in list(chargeEnvelopes.items()):
         for envelope in envelopes:
             mz, ints = envelope[0]
             if charge > 1:
@@ -262,23 +258,21 @@ def deisotope_reduce_scan(spectrum, *peak_pick_args, **peak_pick_kwargs):
             peaks.append((mass, ints))
     return peaks
 
+
 def deisotope_scan(spectrum, *args, **kwargs):
     """
     Deisotopes the given mass spectrum, but leaves isotopically pure peaks
     in place.  This will often improve search score (due to unscored
     isotopic peaks being absent.)
-    
+
     For best results, the scan mass tolerance should be below 0.01 Daltons.
     """
-     
+
     chargeEnvelopes, peaks = peak_pick(spectrum, *args, **kwargs)
-    for charge, envelopes in chargeEnvelopes.items():
+    for charge, envelopes in list(chargeEnvelopes.items()):
         for envelope in envelopes:
             peaks.append(envelope[0])
-    return peaks           
-    
-
-
+    return peaks
 
 
 def top_n_peaks(spectrum, N):
@@ -286,7 +280,8 @@ def top_n_peaks(spectrum, N):
     Takes the most-intense N peaks of the given scan, and discards the rest.
     """
     N = int(N) if N else 0
-    return sorted(spectrum, key = lambda x: x[1], reverse = True)[:int(N)]
+    return sorted(spectrum, key=lambda x: x[1], reverse=True)[:int(N)]
+
 
 def exclusion_radius(spectrum, exclusion):
     """
@@ -298,14 +293,15 @@ def exclusion_radius(spectrum, exclusion):
     if not exclusion or not float(exclusion):
         return spectrum
     exclusion = float(exclusion)
-    
+
     acc = []
     while spectrum:
-        peak = max(spectrum, key = lambda x: x[1])
+        peak = max(spectrum, key=lambda x: x[1])
         acc.append(peak)
         spectrum = [x for x in spectrum if not abs(x[0] - peak[0]) < exclusion]
-    
-    return acc    
+
+    return acc
+
 
 def signal_noise(spectrum, minSN):
     """
@@ -313,19 +309,20 @@ def signal_noise(spectrum, minSN):
     of lowest-intensity peaks that match a specified minimum signal-to-noise
     ratio and discarding those.
     """
-    
+
     if not minSN or not float(minSN):
         return spectrum
-    
+
     minSN = float(minSN)
-    spectrum.sort(key = lambda x: x[1])
+    spectrum.sort(key=lambda x: x[1])
     for i in range(0, len(spectrum)):
         ints = [x[1] for x in spectrum[i:]]
         SN = average(ints) / std(ints)
         if SN > minSN:
             return spectrum[i:]
-    
+
     return spectrum
+
 
 def intensity_threshold(spectrum, threshold):
     """
@@ -335,13 +332,14 @@ def intensity_threshold(spectrum, threshold):
     threshold = float(threshold)
     return [x for x in spectrum if float(x[1]) > threshold]
 
+
 def mz_range(spectrum, range):
     """
     Discards all peaks in the spectrum that are beyond the specified
     MZ range.
     """
-    
-    if isinstance(range, basestring):
+
+    if isinstance(range, str):
         start, stop = [int(x) for x in range.split('-')]
     else:
         start, stop = range

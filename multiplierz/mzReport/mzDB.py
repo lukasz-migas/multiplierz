@@ -16,32 +16,38 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with multiplierz.  If not, see <http://www.gnu.org/licenses/>.
 
-import sqlite3
+import pickle
 import os
 import re
-import cPickle
+import sqlite3
 
-from multiplierz.mzReport import ReportReader, ReportWriter, ReportEntry, default_columns, default_types
 from multiplierz import logger_message
-
+from multiplierz.mzReport import (ReportEntry, ReportReader, ReportWriter,
+                                  default_columns, default_types)
 
 # SQLite type conversion. The trailing space is for insertion into statements
 sqlite_types = {int: ' INTEGER',
-                long: ' INTEGER',
+                int: ' INTEGER',
                 float: ' REAL',
                 str: ' TEXT',
-                unicode: ' TEXT'}
+                str: ' TEXT'}
 
 # this function converts a scan into a binary blob for sqlite
 # it simply uses Python's pickle functionality.
+
+
 def adapt_data(data):
-    return sqlite3.Binary(cPickle.dumps(data, protocol=2))
+    return sqlite3.Binary(pickle.dumps(data, protocol=2))
+
 
 sqlite3.register_adapter(tuple, adapt_data)
 
 # the function to convert a blob back into a scan, by un-pickling
+
+
 def convert_data(data):
-    return cPickle.loads(str(data))
+    return pickle.loads(str(data))
+
 
 sqlite3.register_converter('pickled', convert_data)
 
@@ -53,7 +59,7 @@ class SQLiteReader(ReportReader):
         if sheet_name and not table_name:
             table_name = sheet_name
         elif sheet_name and table_name and (sheet_name != table_name):
-            raise IOError, "Doubly-specified table name: %s and %s" % (sheet_name, table_name)
+            raise IOError("Doubly-specified table name: %s and %s" % (sheet_name, table_name))
         self.table_name = table_name or 'PeptideData'
 
         if not os.path.exists(file_name):
@@ -96,6 +102,7 @@ class SQLiteReader(ReportReader):
 
 class SQLiteWriter(ReportWriter):
     '''The SQLite implementation of the mzReport writer class.'''
+
     def __init__(self, file_name, table_name=None, columns=None, default_columns=False):
         self.table_name = table_name or 'PeptideData'
 
@@ -140,14 +147,14 @@ class SQLiteWriter(ReportWriter):
             raise ValueError('Must have values for each column')
         elif len(row) > len(self.columns):
             raise ValueError('Too many values')
-        elif isinstance(row,dict):
-            row = dict((k.lower(),v) for k,v in row.items())
+        elif isinstance(row, dict):
+            row = dict((k.lower(), v) for k, v in list(row.items()))
             if not all(k.lower() in row for k in self.columns):
                 raise ValueError('Value dictionary does not match column headers')
 
         # supposedly this isn't a secure way to do a SQLite command, but I don't see
         # a better way to deal with an unknown number of values
-        if isinstance(row,dict):
+        if isinstance(row, dict):
             self.lastID = self.conn.execute("INSERT OR REPLACE into %s values (%s)" % (self.table_name, ','.join(['?']*len(row))),
                                             tuple([row[col.lower()] for col in self.columns])).lastrowid
         else:
@@ -160,13 +167,13 @@ class SQLiteWriter(ReportWriter):
 
             # insert general images
             self.conn.executemany("INSERT OR REPLACE into ImageData values (?,?,?,?)",
-                                  ((self.lastID,col,t,sqlite3.Binary(open(img,'rb').read()))
-                                   for (col,t,img) in metadata if t.lower() == 'image'))
+                                  ((self.lastID, col, t, sqlite3.Binary(open(img, 'rb').read()))
+                                   for (col, t, img) in metadata if t.lower() == 'image'))
 
             # insert scan data for our images (to generate on the fly)
             self.conn.executemany("INSERT OR REPLACE into ImageData values (?,?,?,?)",
-                                  ((self.lastID,col,t,scan)
-                                   for (col,t,scan) in metadata if t.lower() in ('ms1','xic','ms2')))
+                                  ((self.lastID, col, t, scan)
+                                   for (col, t, scan) in metadata if t.lower() in ('ms1', 'xic', 'ms2')))
 
         # commit changes every 1000 rows to reduce memory usage
         if self.lastID % 1000 == 0:
@@ -178,9 +185,9 @@ class SQLiteWriter(ReportWriter):
 
         if self.lastID:
             self.conn.execute("INSERT into ImageData values (?,?,?,?)",
-                              (self.lastID,column,'image',sqlite3.Binary(open(image,'rb').read())))
+                              (self.lastID, column, 'image', sqlite3.Binary(open(image, 'rb').read())))
         else:
-            raise IndexError, "No row to add an image to"
+            raise IndexError("No row to add an image to")
 
     def close(self):
         self.conn.commit()

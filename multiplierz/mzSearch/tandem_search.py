@@ -1,18 +1,19 @@
-import os, sys
-from multiplierz import myData
-from multiplierz.settings import settings
-from subprocess import call
+import os
+import sys
+import xml.dom.minidom as minidom  # For XML pretty-printing.
 import xml.etree.ElementTree as ET
-from multiplierz.mzTools.mzIdentMLAPI import mzIdentML
+from subprocess import call
+
+from multiplierz import myData
 from multiplierz.mzReport import writer
 from multiplierz.mzReport.formats.xtandem import format_XML
-import xml.dom.minidom as minidom # For XML pretty-printing.
+from multiplierz.mzTools.mzIdentMLAPI import mzIdentML
+from multiplierz.settings import settings
 
 __all__ = ['TandemSearch']
 
 xtandemExe = settings.xtandem
 defaultParameterFile = os.path.join(os.path.dirname(xtandemExe), 'default_input.xml')
-
 
 
 defaultParameters = [('list path, default parameters', 'default_input.xml'),
@@ -33,9 +34,9 @@ defaultParameters = [('list path, default parameters', 'default_input.xml'),
                      ('spectrum, minimum peaks', '15'),
                      ('spectrum, threads', '1'),
                      ('spectrum, sequence batch size', '1000'),
-                     ('spectrum, use neutral loss window', 'yes'), #
+                     ('spectrum, use neutral loss window', 'yes'),
                      ('spectrum, neutral loss window', '15.0'),    # From "fully filled out" file.  Valid?
-                     ('spectrum, neutral loss mass', '466.0'),     #                    
+                     ('spectrum, neutral loss mass', '466.0'),
                      ('residue, modification mass', '57.022@C'),
                      ('residue, potential modification mass', None),
                      ('residue, potential modification motif', None),
@@ -169,7 +170,7 @@ parameterFields = [['list path', 'default parameters'],
                    ['output', 'maximum valid expectation value'],
                    ['output', 'histogram column width']]
 
-requiredParameters = [] # Figure out what these are!
+requiredParameters = []  # Figure out what these are!
 
 # IT is unclear to me whether XTandem actually uses the non-taxon parts of the
 # XML data files.
@@ -197,39 +198,38 @@ defaultEnzymes = [('[R]|[A-Z]', 'Arg-C'),
                   ('[KR]|{P}', 'Trypsin')]
 
 
-
-def writeTaxonomyForFasta(fastafiles, taxon, taxfile = None):
+def writeTaxonomyForFasta(fastafiles, taxon, taxfile=None):
     """
     Writes a taxonomy file with default enzymes and parsers, set to use the
     given FASTA file (overriding notions of 'taxon'.)
     """
     if not taxfile:
         taxfile = fastafiles[0] + '.taxon.xml'
-    
+
     bioml = ET.Element('bioml')
     bioml.set('label', 'x! taxon-to-file matching list')
-    
-    taxTree = ET.ElementTree(bioml)    
-    
+
+    taxTree = ET.ElementTree(bioml)
+
     arb = ET.Element('taxon')
     arb.set('label', taxon)
-    
+
     for fastafile in fastafiles:
         fil = ET.Element('file')
         fil.set('format', 'peptide')
         fil.set('URL', fastafile)
         arb.append(fil)
-        
+
     bioml.append(arb)
-    taxTree.write(taxfile, xml_declaration = True)
-    
+    taxTree.write(taxfile, xml_declaration=True)
+
     return taxfile
 
 
-def adaptXtandemXML(xmlfile, inpath, outpath, fasta = None):
+def adaptXtandemXML(xmlfile, inpath, outpath, fasta=None):
     xml = ET.parse(xmlfile)
     bioml = xml.getroot()
-    
+
     for thing in bioml:
         label = thing.get('label')
         if label == 'input, path':
@@ -241,45 +241,45 @@ def adaptXtandemXML(xmlfile, inpath, outpath, fasta = None):
         elif label == 'list path, taxonomy information' and fasta:
             taxfile = writeTaxonomyForFasta(fasta, 'arbitrary')
             thing.text = taxfile
-    
+
     outputxml = xmlfile[:-4] + '.modified.xml'
-    xml.write(outputxml, xml_declaration = True)
-    
+    xml.write(outputxml, xml_declaration=True)
+
     return outputxml
-    
 
 
 class TandemSearch(dict):
     """
     Represents an XTandem parameters file, with associated (dummy) taxonomy file.
-    
+
     If an existant parameters file is given, this is read in; if a non-existant
     parameters file name is given, defaults are used and saved to the given
     file name; if no file name is given, parameters are saved in a temp file only
     for use by the script itself.
-    
+
     Fields are accessed through two-layer lookup, where the first layer represents
     the settings categories and the second the setting itself.  For instance:
-    
+
     >settings = TandemParameters()
     >settings['spectrum']['dynamic range'] = 200
     >settings['residue']['modification mass']
     57.022@C
     """
-    def __init__(self, parameterfile = None, save_parameter_file = False):
+
+    def __init__(self, parameterfile=None, save_parameter_file=False):
         self.file_name = parameterfile
         self.fields = []
-        
+
         self.save_parameter_file = save_parameter_file
         self.fasta_files = None
-        
+
         if parameterfile and os.path.exists(parameterfile):
             bioml = ET.parse(parameterfile).getroot()
             for thing in bioml:
                 fullfield = thing.get('label')
                 if not fullfield:
                     continue
-                
+
                 try:
                     category, field = [x.strip() for x in fullfield.split(',')]
                     if category not in self:
@@ -290,13 +290,12 @@ class TandemSearch(dict):
                     if field not in self:
                         self[field] = {}
                     self[field][''] = thing.text
-                        
-                
-        else: # No file given; use defaults.
+
+        else:  # No file given; use defaults.
             for fullfield, value in defaultParameters:
                 try:
                     category, field = [x.strip() for x in fullfield.split(',')]
-                    
+
                     if category not in self:
                         self[category] = {}
                     self[category][field] = value
@@ -305,8 +304,7 @@ class TandemSearch(dict):
                     if fullfield not in self:
                         self[fullfield] = {}
                     self[fullfield][''] = value
-    
-        
+
     def __str__(self):
         output = []
         unset = []
@@ -315,7 +313,7 @@ class TandemSearch(dict):
                 output.append("\t%s, %s:\t%s\n" % (category, field, self[category][field]))
             else:
                 unset.append((category, field))
-        
+
         output.append('\n---------\n')
         output.append('Optional Parameters Not Set:\n')
         output.append('\n'.join([', '.join(x) for x in unset if x not in requiredParameters]))
@@ -323,70 +321,67 @@ class TandemSearch(dict):
         output.append('REQUIRED Parameters Not Set:\n')
         output.append('\n'.join([', '.join(x) for x in unset if x in requiredParameters]))
         output.append('\n---------\n')
-        
+
         return ''.join(output)
-    
-    def write(self, outputfile = None):
+
+    def write(self, outputfile=None):
         if not outputfile:
             outputfile = os.path.join(myData, 'XTANDEMTEMP.TEMP')
             self.save_parameter_file = False
-        
+
         bioml = ET.Element('bioml')
-        
+
         note = ET.Element('note')
         note.text = 'XTandem parameter file written by Multiplierz.'
         bioml.append(note)
-        
-        for category, fields in self.items():
-            for field, value in fields.items():
+
+        for category, fields in list(self.items()):
+            for field, value in list(fields.items()):
                 if category == 'refine' and not field:
                     fullfield = 'refine'
                 else:
                     fullfield = ', '.join([category, field])
-                
+
                 par = ET.Element('note')
                 par.set('type', 'input')
                 par.set('label', fullfield)
-                par.text = str(value) if value != None else ''
-                
+                par.text = str(value) if value is not None else ''
+
                 bioml.append(par)
-        
+
         xmlform = ET.ElementTree(bioml)
         domform = minidom.parseString(ET.tostring(xmlform.getroot()))
         output = open(outputfile, 'w')
         output.write(domform.toprettyxml())
         output.close()
-        #xml.write(outputfile)
-        
-        
+        # xml.write(outputfile)
+
         return outputfile
-    
-    
-    
-    def run_search(self, data_file, outputfile = None, fasta_files = None):
+
+    def run_search(self, data_file, outputfile=None, fasta_files=None):
         """
         Runs an XTandem search using the XTandem instance specified in the
         multiplierz settings file.
-        
+
         If fasta_file is specified, this is made to override any existing
         database/taxon listed in the original settings file (if any.)
         """
         assert self.fasta_files or fasta_files, "No sequence database specified!"
         if not fasta_files:
             fasta_files = self.fasta_files
-        
-        #for i in range(len(fasta_files)):
-            #if fasta_files[i].lower().endswith('fasta'):
-                #if not os.path.exists(fasta_files[i] + '.pro'):
-                    #print "Converting %s..." % fasta_files[i]
-                    #fastaConverter = os.path.join(os.path.dirname(xtandemExe), 'fasta_pro.exe')
-                    #call([fastaConverter, fasta_files[i]])
-                #fasta_files[i] = fasta_files[i] + '.pro'
-        
+
+        # for i in range(len(fasta_files)):
+            # if fasta_files[i].lower().endswith('fasta'):
+            # if not os.path.exists(fasta_files[i] + '.pro'):
+            # print "Converting %s..." % fasta_files[i]
+            #fastaConverter = os.path.join(os.path.dirname(xtandemExe), 'fasta_pro.exe')
+            #call([fastaConverter, fasta_files[i]])
+            #fasta_files[i] = fasta_files[i] + '.pro'
+
         # This will cause calling run_search to visibly mutate the object!
         # Which may be the only reasonable way to do it- the mutated fields
         # were ignored to begin with, in order to account for the FASTA file.
-        
+
         if not self['protein']['taxon']:
             taxon = 'arbitrary'
             self['protein']['taxon'] = taxon
@@ -394,39 +389,36 @@ class TandemSearch(dict):
             taxon = self['protein']['taxon']
         taxfile = writeTaxonomyForFasta(fasta_files, taxon)
         self['list path']['taxonomy information'] = taxfile
-            
+
         if not self['output']['path']:
-            self['output']['path'] = data_file + '.mzid'        
-        
+            self['output']['path'] = data_file + '.mzid'
+
         ext = data_file.split('.')[-1]
-        if ext.lower() in ['raw', 'wiff', 'd']: # mzml not included, since that can go directly!
+        if ext.lower() in ['raw', 'wiff', 'd']:  # mzml not included, since that can go directly!
             from multiplierz.mgf import extract
             mgf_file = extract(data_file)
         else:
             mgf_file = data_file
-        
+
         if not outputfile:
             outputfile = data_file + '.xlsx'
         else:
             assert outputfile.split('.')[-1] in ['xls', 'xlsx', 'csv', 'mzd']
-            
-    
+
         self['spectrum']['path'] = mgf_file
-        
+
         self['list path']['default parameters'] = defaultParameterFile
-        
-        self['output']['path hashing'] = 'no' # Required to be able to retrieve output.
+
+        self['output']['path hashing'] = 'no'  # Required to be able to retrieve output.
         expectedOutput = self['output']['path']
-        
+
         parametersFile = self.write()
-        
+
         result = call([xtandemExe, parametersFile])
         assert not result, "XTandem failed with error code %s" % result
-        
+
         assert os.path.exists(expectedOutput), "Output file not found!"
-        
-        format_XML(expectedOutput, outputfile, parameters = dict(self))
-        
+
+        format_XML(expectedOutput, outputfile, parameters=dict(self))
+
         return outputfile
-        
-    

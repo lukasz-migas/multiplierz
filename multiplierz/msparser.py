@@ -9,6 +9,7 @@
 
 
 from sys import version_info
+
 if version_info >= (2,6,0):
     def swig_import_helper():
         from os.path import dirname
@@ -17,7 +18,7 @@ if version_info >= (2,6,0):
         try:
             fp, pathname, description = imp.find_module('_msparser', [dirname(__file__)])
         except ImportError:
-            import _msparser
+            from . import _msparser
             return _msparser
         if fp is not None:
             try:
@@ -28,7 +29,7 @@ if version_info >= (2,6,0):
     _msparser = swig_import_helper()
     del swig_import_helper
 else:
-    import _msparser
+    from . import _msparser
 del version_info
 try:
     _swig_property = property
@@ -84,7 +85,7 @@ class SwigPyIterator(_object):
     def distance(self, *args): return _msparser.SwigPyIterator_distance(self, *args)
     def equal(self, *args): return _msparser.SwigPyIterator_equal(self, *args)
     def copy(self): return _msparser.SwigPyIterator_copy(self)
-    def next(self): return _msparser.SwigPyIterator_next(self)
+    def __next__(self): return _msparser.SwigPyIterator_next(self)
     def __next__(self): return _msparser.SwigPyIterator___next__(self)
     def previous(self): return _msparser.SwigPyIterator_previous(self)
     def advance(self, *args): return _msparser.SwigPyIterator_advance(self, *args)
@@ -106,7 +107,7 @@ class vectori(_object):
     __repr__ = _swig_repr
     def iterator(self): return _msparser.vectori_iterator(self)
     def __iter__(self): return self.iterator()
-    def __nonzero__(self): return _msparser.vectori___nonzero__(self)
+    def __bool__(self): return _msparser.vectori___nonzero__(self)
     def __bool__(self): return _msparser.vectori___bool__(self)
     def __len__(self): return _msparser.vectori___len__(self)
     def pop(self): return _msparser.vectori_pop(self)
@@ -153,7 +154,7 @@ class vectorl(_object):
     __repr__ = _swig_repr
     def iterator(self): return _msparser.vectorl_iterator(self)
     def __iter__(self): return self.iterator()
-    def __nonzero__(self): return _msparser.vectorl___nonzero__(self)
+    def __bool__(self): return _msparser.vectorl___nonzero__(self)
     def __bool__(self): return _msparser.vectorl___bool__(self)
     def __len__(self): return _msparser.vectorl___len__(self)
     def pop(self): return _msparser.vectorl_pop(self)
@@ -200,7 +201,7 @@ class vectord(_object):
     __repr__ = _swig_repr
     def iterator(self): return _msparser.vectord_iterator(self)
     def __iter__(self): return self.iterator()
-    def __nonzero__(self): return _msparser.vectord___nonzero__(self)
+    def __bool__(self): return _msparser.vectord___nonzero__(self)
     def __bool__(self): return _msparser.vectord___bool__(self)
     def __len__(self): return _msparser.vectord___len__(self)
     def pop(self): return _msparser.vectord_pop(self)
@@ -247,7 +248,7 @@ class vectorb(_object):
     __repr__ = _swig_repr
     def iterator(self): return _msparser.vectorb_iterator(self)
     def __iter__(self): return self.iterator()
-    def __nonzero__(self): return _msparser.vectorb___nonzero__(self)
+    def __bool__(self): return _msparser.vectorb___nonzero__(self)
     def __bool__(self): return _msparser.vectorb___bool__(self)
     def __len__(self): return _msparser.vectorb___len__(self)
     def pop(self): return _msparser.vectorb_pop(self)
@@ -294,7 +295,7 @@ class VectorString(_object):
     __repr__ = _swig_repr
     def iterator(self): return _msparser.VectorString_iterator(self)
     def __iter__(self): return self.iterator()
-    def __nonzero__(self): return _msparser.VectorString___nonzero__(self)
+    def __bool__(self): return _msparser.VectorString___nonzero__(self)
     def __bool__(self): return _msparser.VectorString___bool__(self)
     def __len__(self): return _msparser.VectorString___len__(self)
     def pop(self): return _msparser.VectorString_pop(self)
@@ -8430,5 +8431,3 @@ ms_spectral_lib_file_swigregister = _msparser.ms_spectral_lib_file_swigregister
 ms_spectral_lib_file_swigregister(ms_spectral_lib_file)
 
 # This file is compatible with both classic and new-style classes.
-
-
